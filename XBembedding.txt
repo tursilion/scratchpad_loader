@@ -1,0 +1,57 @@
+This information was hard to come by, so it's worth documenting again. Extended 
+BASIC builds a program starting at the top of memory. There are two pointers it 
+uses during this, one points to the start of the line number table, the other 
+to the end of the line number table.
+
+When a new line is added, the line number table is shifted downwards in memory 
+(this is why a large program starts to slow down when you add new lines). It 
+puts the line building downwards from the start of the line number table pointer, 
+then updates both pointers to the new table.
+
+However, when Extended BASIC saves program code, it saves till the top of RAM 
+no matter what the pointers say. Of course all this is only true for code in 
+the 32k RAM.
+
+This trick takes advantage of this behaviour by pushing the start and end points 
+of the line number table lower in RAM. The program will then build downwards 
+from that point, and SAVE and OLD will preserve all data right to the top 
+automatically.
+
+So first you have to start with NEW, because there must be no data in memory 
+(otherwise updating the pointers without moving it will lose the program). The 
+pointers are at >8330 and >8332 - just set them to just below the new top of 
+memory -- although 1 byte lower is sufficient it's better to keep things aligned 
+on even bytes, so I use two bytes lower. You can use CALL INIT/CALL LOAD to set 
+these pointers, but in Classic99 I just use the debugger.
+
+Next, enter the program. You can MERGE it, type it, or with Classic99 I just 
+paste it in from Notepad. 
+
+To get the assembly into place, just CALL INIT::CALL LOAD("DSK1.ASM/O"). Because 
+the assembly program is AORG'd, it loads into the correct place. Naturally you 
+are responsible for making sure that space is free!
+
+SAVE DSK1.PROGRAM -- and now you have an Extended BASIC program all loading in 
+one fast loader with the assembly language in place.
+
+Note that when you SAVE a program less than about 12k, XB will convert it into
+a PROGRAM image file. My testing so far suggests that this will still work
+correctly. 
+
+To get it back, after starting, you need to CALL INIT and CALL LOAD to update
+the pointers for assembly language.
+
+In this program you will see:
+
+155 CALL INIT :: CALL LOAD(16376,79,80,84,53,32,32,253,120)
+
+16376 is address >3FF8 - the first entry in the REF/DEF table. The bytes
+poke in "OPT5  ", and the address of OPT5 (which I got by 
+CALL LOAD("DSK1.SCR/O") the old fashioned way, and reading the values. 
+You could also use the assembly listing file).
+
+The second one: 157 CALL LOAD(8196,63,248)
+this sets the table pointer at >2004 to point to the newly made entry.
+
+Both of these are needed to load the entry point and update the table so
+that CALL LINK can find it.
